@@ -1,12 +1,68 @@
 # Aembit POC deployment
-Configuration in this directory creates an Aembit Agent Controller and Aembit Access Policies for a AWS Lambda Container that uses the Aembit Lambda Extension to provided dynamic federated authentication to S3.  It also creates an EC2 instance that uses the Aembit Agent Proxy to provide dynamic federated authentication to Google BigQuery.
 
-## Usage
-1. Ensure your [AWS](https://registry.terraform.io/providers/hashicorp/aws/latest/docs#authentication-and-configuration), [Google](https://registry.terraform.io/providers/hashicorp/google/latest/docs/guides/provider_reference#authentication), and [Aembit](https://registry.terraform.io/providers/Aembit/aembit/latest/docs) provider credentials are configured correctly
-2. Configure required variables
-3. Run `terraform init` and `terraform apply`
-4. After the terraform apply completes, test the Lambda function.  A successful test should result in a list of S3 buckets in the function logs.
-5. Test Google BigQuery on the example EC2 Instance using the following command:
+This Terraform configuration sets up the infrastructure required to enable secure, identity-based access to cloud workloads using the [Aembit](https://aembit.io) platform. It deploys an EC2-based agent controller, configures server workloads for AWS S3 and Google BigQuery APIs, and deploys Lambda and EC2-based client workloads capable of accessing those services with strong workload identities.
+
+## 📦 Components
+
+### 1. **Aembit Agent Controller (EC2)**
+- Deployed via the `ec2_agent_controller` module.
+- Receives HTTPS traffic from Client Workloads in the same VPC.
+- Manages identity-based access enforcement for Client Workloads.
+
+### 2. **Aembit Lambda Layers**
+- CA Trust Bundle Layer:
+  - Includes Aembit's Root CA in addition to the common public certificates used by the certifi Python package.
+  - Enables Lambda Function to trust Aembit TLS Decrypt certificates.
+- Aembit Agent Proxy Layer:
+  - Includes Aembit's Agent Proxy Lambda extension.
+  - Enables transparent injection of authentication credentials for Lambda functions.
+- These Layers can be reused by all future Lambda Client Workloads
+
+### 3. **AWS Lambda Workload for S3**
+- Lambda Client Workload that lists S3 buckets from the regional S3 API endpoint.
+- Uses AWS Web Identity Federation to authenticate to AWS using OIDC ID tokens issued by Aembit.
+- Deployed using the `lambda-function-s3` module.
+- Uses both previously mentioned Lambda layers:
+  - A trust bundle that includes Aembit's Root CA in addition to the common public certificates used by the certifi Python package.
+  - The Aembit Agent Proxy layer from the Serverless Application Repository.
+
+### 4. **Workload Identity Federation (GCP)**
+- Creates a Workload Identity Pool and OIDC Provider to support external identities from Aembit.
+- Configured to trust tokens issued by Aembit for federated authentication to GCP APIs.
+- The Workload Identity Pool can be reused for all future Google Service Accounts.
+
+### 3. **Google BigQuery Workload (EC2)**
+- EC2 Client Workload that queries demo data from the Google BigQuery REST API.
+- Uses Google Workload Identity Federation to authenticate to GCP using OIDC ID tokens issued by Aembit.
+- Deployed via the `ec2-bigquery` module.
+
+## 🧪 Prerequisites
+
+Before applying this configuration, you must have:
+
+- An Aembit tenant ID and tenant access.
+- An AWS account with:
+  - A VPC and Subnet(s) already created.
+- A GCP project with billing enabled and IAM access.
+- Terraform installed and authenticated for AWS, GCP, and Aembit providers.
+
+## ⚙️ Usage
+
+1. Clone the repository and navigate to the root directory.
+2. Ensure your [AWS](https://registry.terraform.io/providers/hashicorp/aws/latest/docs#authentication-and-configuration), [Google](https://registry.terraform.io/providers/hashicorp/google/latest/docs/guides/provider_reference#authentication), and [Aembit](https://registry.terraform.io/providers/Aembit/aembit/latest/docs) provider credentials are configured correctly
+3. Set required variables in a `terraform.tfvars` file or pass them via CLI:
+   ```hcl
+   aembit_tenant_id  = "your-tenant-id"
+   aws_account_id    = "123456789012"
+   aws_region        = "us-west-2"
+   vpc_id            = "vpc-xxxxxxxx"
+   subnet_ids        = ["subnet-xxxxxxxx"]
+   vpc_cidr_block    = "10.0.0.0/16"
+   gcp_project       = "your-gcp-project"
+   gcp_workload_identity_pool_name = "aembit-wif-pool"
+4. Run `terraform init` and `terraform apply`
+5. After the terraform apply completes, test the Lambda function.  A successful test should result in a list of S3 buckets in the function logs.
+6. Test Google BigQuery on the example EC2 Instance using the following command:
 ```
 curl -X POST \
   "https://bigquery.googleapis.com/bigquery/v2/projects/gcp-smoketest/queries" \
