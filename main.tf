@@ -32,7 +32,8 @@ resource "aembit_server_workload" "s3" {
 }
 
 # Create Lambda Layer with CA trust bundle
-resource "null_resource" "trust_bundle" {
+resource "null_resource" "trust_bundle_linux" {
+  count = var.os_type == "linux" ? 1 : 0
   triggers = {
     always_run = timestamp()
   }
@@ -45,8 +46,22 @@ resource "null_resource" "trust_bundle" {
   }
 }
 
+resource "null_resource" "trust_bundle_windows" {
+  count = var.os_type == "windows" ? 1 : 0
+  triggers = {
+    always_run = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = "powershell.exe -ExecutionPolicy Bypass -File ${path.module}/layer_build.ps1"
+    environment = {
+      "AEMBIT_TENANT_ID" = var.aembit_tenant_id
+    }
+  }
+}
+
 resource "aws_lambda_layer_version" "trust_bundle" {
-  depends_on = [null_resource.trust_bundle]
+  depends_on = [null_resource.trust_bundle_linux, null_resource.trust_bundle_windows]
   filename   = "${path.module}/build/trustbundle.zip"
   layer_name = "ca_trust_bundle"
 

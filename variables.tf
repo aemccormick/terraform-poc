@@ -43,3 +43,12 @@ variable "vpc_id" {
   type        = string
   description = "ID of AWS VPC where Aembit edge components will be deployed."
 }
+
+variable "os_type" {
+  type = string
+  description = "Operating System of host running Terraform."
+  validation {
+    condition     = var.os_type == "windows" || var.os_type == "linux"
+    error_message = "The os_type must be either 'windows' or 'linux'."
+  }
+}

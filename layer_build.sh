@@ -10,7 +10,7 @@ curl -fsSL "$CERTIFI_URL" -o build/cacert.pem
 curl "https://${AEMBIT_TENANT_ID}.aembit.io/api/v1/root-ca" >> build/cacert.pem
 
 # Zip up trust bundle
-zip build/trustbundle.zip build/cacert.pem
+(cd build && zip trustbundle.zip cacert.pem)
 
 # Remove build artifacts
 rm build/cacert.pem
