@@ -79,9 +79,9 @@ resource "aws_lambda_function" "example" {
       AEMBIT_LOG              = var.aembit_agent_log_level
       http_proxy              = "http://localhost:8000"
       https_proxy             = "http://localhost:8000"
-      SSL_CERT_FILE           = "/opt/build/cacert.pem"
+      SSL_CERT_FILE           = "/opt/cacert.pem"
       # This variable is only required for Python applications using the requests package
-      REQUESTS_CA_BUNDLE = "/opt/build/cacert.pem"
+      REQUESTS_CA_BUNDLE = "/opt/cacert.pem"
     }
   }
 }
